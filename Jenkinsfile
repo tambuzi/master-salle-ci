@@ -4,7 +4,7 @@ pipeline {
        stages {
           stage('Compile & Test') {
              steps {
-                    echo 'Hello From Jenkinsfile"
+                    echo 'Hello From Jenkinsfile'
                     git 'https://github.com/lordofthejars/master-salle-ci.git'
                     sh label: '', script: './mvnw compile test'
                     junit 'target/surefire-reports/*.xml'
