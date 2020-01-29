@@ -1,55 +1,63 @@
 pipeline {
-   agent any
-
+      agent any
    stages {
-      stage('Git Checkout') {
+      stage("Git Checkout") {
          steps {
-            echo 'Git checkout'
-            git 'https://github.com/tambuzi/master-salle-ci'
+            echo "Git checkout"
+            git "https://github.com/byrond27/master-salle-ci"
          }
       }
-      stage('Cleaning Package') {
+      stage("Cleaning Package and Compile") {
          steps {
             echo "Cleaning Package"
-            sh script: './mvnw clean package -DskipTests'
+            sh script: "./mvnw clean package -DskipTests"
+            echo "Compile the package"
+            sh label:"", script: "./mvnw compile"
          }
       }
-      stage ('Tests') {
+      stage ("Tests") {
           steps {
-            sh label: '', script: './mvnw compile test'
-            junit 'target/surefire-reports/*.xml'
+            sh script: "./mvnw test"
+            junit "target/surefire-reports/*.xml"
           }
       }
-      stage('Acceptance Test'){
+      stage("Acceptance Test"){
          steps{
-            echo 'Executing Acceptance Test'
-            sh label:'', script: './mvnw -Dtest=ExampleResourceIT test'
-            junit 'target/surefire-reports/*.xml'
+            echo "Executing Acceptance Test"
+            sh script: "./mvnw verify"
          }
       }
-      stage('Package') {
+      stage("Package") {
          steps {
-            echo "Package"
-            sh script: './mvnw package -DskipTests'
+            echo "Package version ${new_version}"
+            sh script: "./mvnw package -DskipTests"
          }
       }
-     stage('Build Docker Image') {
+     stage("Build Docker Image") {
          steps {
-            sh 'docker build -t tambuzi1997/maven:3.3-jdk-8 .'
+            sh "docker build -f src/main/docker/Dockerfile.jvm -t quarkus/code-with-quarkus-jvm ."
          }
      }
-     stage('Push Docker Image') {
-         steps {
-            withCredentials([string(credentialsId: 'docker-pwd', variable: 'DockerPass')]) {
-               sh "docker login -u tambuzi1997 -p ${DockerPass}"
-            }
-            sh 'docker push tambuzi1997/maven:3.3-jdk-8'
-         }
-     }
-     stage('Run Container on Server') {
+     stage("Produccion") {
+        input {
+            message "Pasamos a producción?"
+        }
         steps {
-            sh 'docker run -p 8081:8081 -d -name maven tambuzi1997/maven:3.3-jdk-8'
+            echo "Production"
+            sh "docker stop maven_${old_version} || (exit 0)"
+            sh "docker run --name maven_${new_version} -i --rm -p 8082:8080 -d quarkus/code-with-quarkus-jvm"
         }
      }
    }
+   post {  
+      always {  
+         mail bcc: "", body: "<b>Pipeline Finished</b><br>Project: ${env.JOB_NAME} <br>Build Number: ${env.BUILD_NUMBER} <br> URL de build: ${env.BUILD_URL}", cc: "", charset: "UTF-8", from: "", mimeType: "text/html", replyTo: "", subject: "Pipeline FINISHED CI: Project name -> ${env.JOB_NAME}", to: "${notification_email}";  
+      }
+      success {  
+         mail bcc: "", body: "<b>Pipeline Success</b><br>Project: ${env.JOB_NAME} <br>Build Number: ${env.BUILD_NUMBER} <br> URL de build: ${env.BUILD_URL}", cc: "", charset: "UTF-8", from: "", mimeType: "text/html", replyTo: "", subject: "Pipeline SUCCESS CI: Project name -> ${env.JOB_NAME}", to: "${notification_email}";  
+      }  
+      failure {  
+         mail bcc: "", body: "<b>Pipeline Failure</b><br>Project: ${env.JOB_NAME} <br>Build Number: ${env.BUILD_NUMBER} <br> URL de build: ${env.BUILD_URL}", cc: "", charset: "UTF-8", from: "", mimeType: "text/html", replyTo: "", subject: "Pipeline ERROR CI: Project name -> ${env.JOB_NAME}", to: "${notification_email}";  
+      }  
+   }  
 }
