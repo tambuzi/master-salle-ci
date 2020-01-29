@@ -4,7 +4,7 @@ pipeline {
       stage("Git Checkout") {
          steps {
             echo "Git checkout"
-            git "https://github.com/byrond27/master-salle-ci"
+            git "https://github.com/tambuzi/master-salle-ci"
          }
       }
       stage("Cleaning Package and Compile") {
